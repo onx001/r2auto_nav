@@ -285,7 +285,7 @@ class PosNav(Node):
         while(True):
             rclpy.spin_once(self)
             if self.ultrasonic == "can in":
-                counter = counter + 1
+                counter = counter + 1 #check if RPi detects a persistent can
                 rclpy.spin_once(self)
                 print(counter)
                 time.sleep(1)
@@ -306,7 +306,7 @@ class PosNav(Node):
         while(True):
             rclpy.spin_once(self)
             if self.ultrasonic == "can out":
-                counter = counter + 1
+                counter = counter + 1 #check if RPi detects a persistent emptiness
                 rclpy.spin_once(self)
                 print(counter)
                 time.sleep(0.5)
@@ -571,24 +571,21 @@ class PosNav(Node):
             time.sleep(0.1)
             rclpy.spin_once(self)
 
-            dist = math.sqrt((self.mapbase.x-to_x)**2 + (self.mapbase.y-to_y)**2)
-            print(dist,self.mapbase.x,self.mapbase.y)
+            dist = math.sqrt((self.mapbase.x-to_x)**2 + (self.mapbase.y-to_y)**2) #Distance from checkpoint
             if dist < mindist:
-                mindist = dist
-            if dist < stop_distance:
+                mindist = dist #update measurement
+            if dist < stop_distance: #destination reached
                 stop_flag = 1
-                print("yes")
-            elif ((dist - mindist) > 0.02 ):
-                print("Overshot")
+            elif ((dist - mindist) > 0.02 ): #overshot
                 stop_flag = 1
                 overshot = 1
-
+                
         self.stopbot()
         rclpy.spin_once(self)
-        next = angle_between(temp,[self.mapbase.x,self.mapbase.y])
-        self.og = next
+        next = angle_between(temp,[self.mapbase.x,self.mapbase.y]) #find amount to reorientate by
+        self.og = next #update stored yaw to check against
         if overshot:
-            self.move_coords(to_x, to_y)
+            self.move_coords(to_x, to_y) #Go back to missed checkpoint
         print("done")
 
     def setstartyaw(self):
@@ -745,14 +742,7 @@ class PosNav(Node):
         nextangle = angle_between([self.mapbase.x,self.mapbase.y],coords[-2])
         self.rotatebot((nextangle-yaw2angle(self.mbyaw)+360)%360)
         
-
-        #if table==6:
-        #    self.find_table_6()
         print("destination reached")
-        #self.robotforward()
-        #time.sleep(3)
-        #self.stopbot()
-        
         
         while not self.ultrawait():
             time.sleep(0.1)
@@ -806,6 +796,16 @@ class PosNav(Node):
         rclpy.spin_once(self)
         self.move_coords(0.45,0)
 
+        self.move_coords_back(0.3,0)
+        self.move_coords_back(0.2,0)
+        self.move_coords_back(0.1,0)
+        self.move_coords_back(0,0)
+
+        self.rotatebotslow((yaw2angle(self.startyaw) - yaw2angle(self.mbyaw)+360)%360)
+
+        rclpy.spin_once(self)
+        self.stopbot()
+        
         '''
         self.ogx = self.mapbase.x
         self.ogy = self.mapbase.y
@@ -926,16 +926,7 @@ class PosNav(Node):
 
                 '''
         
-        self.move_coords_back(0.3,0)
-        self.move_coords_back(0.2,0)
-        self.move_coords_back(0.1,0)
-        self.move_coords_back(0,0)
 
-        self.rotatebotslow((yaw2angle(self.startyaw) - yaw2angle(self.mbyaw)+360)%360)
-
-        print("done parking")
-        rclpy.spin_once(self)
-        self.stopbot()
         #new_angle = (self.ogangle-self.og)
         #self.rotatebot(new_angle)
         #self.og = self.ogangle
@@ -980,22 +971,16 @@ def ultrastop():
         if data == 'P':
             sock.close()
             break
-    
-    
 
     return 1
 
 
 
 def tableinp():
-    #find angle for 
+    #connect to esp
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((host, port))
     print("connected")
-
-    #initmsg = "start".encode()
-    #sock.send(initmsg)
-
     data = sock.recv(1).decode()
 
     while(not data.strip().isdigit()):
@@ -1004,10 +989,8 @@ def tableinp():
 
         if data.strip().isdigit():
             sock.close()
-            break
-    
-    
-
+            break #if table number is received, end loop
+            
     return int(data)
 
 
@@ -1017,23 +1000,20 @@ def main(args=None):
     auto_nav = PosNav()
     
     time.sleep(2)
-    auto_nav.setstartyaw()
-    #auto_nav.get_init_pose()
+    auto_nav.setstartyaw() #find parking orientation
     can_status = 0
     #auto_nav.backup()
     
     auto_nav.backup()
     table_num = 0
     while (True):
-        table_num = tableinp()
+        table_num = tableinp() #get table number
         while not can_status:
-            can_status = auto_nav.dispwait()
+            can_status = auto_nav.dispwait() #waiting for can
             time.sleep(0.1)
-            print("can status:",can_status)
         if can_status:
-            auto_nav.pick_table(table_num)
-            can_status = 0
-            
+            auto_nav.pick_table(table_num) #follow respective route
+            can_status = 0 #reset route
 
     auto_nav.destroy_node()
     rclpy.shutdown()
