@@ -35,6 +35,7 @@ front_angle = 90
 front_angles = range(-front_angle,front_angle+1,1)
 scanfile = 'lidar.txt'
 mapfile = 'map.txt'
+mac_addr = "80:7D:3A:FC:F0:80"
 
 
 import socket
@@ -71,7 +72,7 @@ def find_disp_ip(ip_range):
 
     for item in data:
         try:
-            if nm[item]['addresses']['mac'] == "80:7D:3A:FC:F0:80":
+            if nm[item]['addresses']['mac'] == mac_addr:
                 print(item)
                 return item
         except:
@@ -79,10 +80,9 @@ def find_disp_ip(ip_range):
 
 
 
-#ip_range = find_local_ip()
-#host = find_disp_ip(ip_range) #ESP32 IP in local network
-#host = find_disp_ip(ip_range)
-host = '192.168.34.163'
+ip_range = find_local_ip()
+host = find_disp_ip(ip_range) #ESP32 IP in local network
+host = find_disp_ip(ip_range)
 port = 80             #ESP32 Server Port    
 
 
